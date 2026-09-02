@@ -1,0 +1,106 @@
+{
+    "head-view": {
+        "type": "header",
+        "description": "Appearance"
+    },
+    "language": {
+        "type": "combobox",
+        "default": "en",
+        "description": "Panel language",
+        "tooltip": "Language of the indicator and its tooltip. This settings window is always English. Error messages are always English too.",
+        "options": {
+            "English": "en",
+            "Русский": "ru"
+        }
+    },
+    "display-mode": {
+        "type": "combobox",
+        "default": "both",
+        "description": "What to show in the panel",
+        "options": {
+            "Bars": "bars",
+            "Numbers": "numbers",
+            "Bars and numbers": "both"
+        }
+    },
+    "show-pace-mark": {
+        "type": "switch",
+        "default": true,
+        "description": "Pace mark on the session bar",
+        "tooltip": "A thin mark showing how much of the five-hour window has already passed. Fill above the mark means spending is outrunning the window's recovery."
+    },
+    "head-colors": {
+        "type": "header",
+        "description": "Colour thresholds"
+    },
+    "threshold-warn": {
+        "type": "spinbutton",
+        "default": 80,
+        "min": 10,
+        "max": 99,
+        "step": 1,
+        "units": "%",
+        "description": "Amber from",
+        "tooltip": "Below this value the indicator is green."
+    },
+    "threshold-crit": {
+        "type": "spinbutton",
+        "default": 90,
+        "min": 11,
+        "max": 100,
+        "step": 1,
+        "units": "%",
+        "description": "Red from",
+        "tooltip": "Raised to the amber threshold automatically if set below it."
+    },
+    "head-poll": {
+        "type": "header",
+        "description": "Polling"
+    },
+    "polling-enabled": {
+        "type": "switch",
+        "default": true,
+        "description": "Poll the usage endpoint",
+        "tooltip": "Stops all requests to api.anthropic.com. The applet stays in the panel showing the last known values, dimmed; a click still fetches fresh data. To remove the applet entirely use the Applets manager — then it will not come back at the next login either."
+    },
+    "update-interval": {
+        "type": "spinbutton",
+        "default": 10,
+        "min": 1,
+        "max": 60,
+        "step": 1,
+        "units": "minutes",
+        "description": "Polling interval",
+        "tooltip": "How often to ask api.anthropic.com for the usage. At least 30 seconds always passes between any two requests."
+    },
+    "click-to-refresh": {
+        "type": "switch",
+        "default": true,
+        "description": "Refresh on click",
+        "tooltip": "A left click on the indicator fetches fresh data, at most once every 30 seconds."
+    },
+    "skip-when-idle": {
+        "type": "switch",
+        "default": true,
+        "description": "Skip polling while Claude Code is idle",
+        "tooltip": "If ~/.claude/history.jsonl has not changed for half an hour there is nothing to spend, and the poll is skipped: needless requests only bring a 429 closer. The indicator is dimmed meanwhile, and a click still refreshes."
+    },
+    "credentials-path": {
+        "type": "filechooser",
+        "default": "",
+        "description": "Credentials file",
+        "tooltip": "Leave empty for ~/.claude/.credentials.json. The file is only ever read."
+    },
+    "last-api-call-time": {
+        "type": "generic",
+        "default": 0
+    },
+    "backoff-until": {
+        "type": "generic",
+        "default": 0
+    },
+    "backoff-step": {
+        "type": "generic",
+        "default": 600
+    }
+}

@@ -1,0 +1,24 @@
+/* Padding comes from applet-box along with the rest of the panel; the only
+   thing owned here is the gap between the bars and the numbers. */
+.applet-box.claude-limits-box {
+    spacing: 7px;
+}
+
+/* Tabular figures: without them the width jumps on every update. */
+.claude-limits-label {
+    font-feature-settings: "tnum";
+}
+
+/* The theme paints #Tooltip in the accent colour and centres the text. Green
+   and amber are unreadable on that background, and the whole card is built out
+   of colour, so this tooltip needs a surface of its own. The ID in the
+   selector outranks the theme while still matching only this applet. */
+#Tooltip.claude-limits-tooltip {
+    background-color: #16191d;
+    border: 1px solid rgba(233, 231, 227, 0.09);
+    border-radius: 7px;
+    padding: 13px 16px;
+    color: #e9e7e3;
+    text-align: left;
+    max-width: 330px;
+}

@@ -1,0 +1,8 @@
+{
+    "uuid": "claude-limits@paradoxm",
+    "name": "Claude Code Limits",
+    "description": "Five-hour and weekly Claude Code usage in the panel",
+    "version": "1.0.0",
+    "author": "paradoxm",
+    "max-instances": 1
+}

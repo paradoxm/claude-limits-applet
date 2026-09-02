@@ -1,0 +1,60 @@
+// When the applet is allowed to reach api.anthropic.com. Changes when the
+// thrift rules change; knows nothing about the network or about widgets.
+
+// No request leaves sooner than this many seconds after the previous one,
+// whatever the configured interval is and however often the user clicks.
+var MIN_REQUEST_GAP = 30;
+
+// Back-off after a 429 or a 5xx: doubles from ten minutes to an hour, and a
+// successful answer resets it.
+var BACKOFF_START = 600;
+var BACKOFF_MAX = 3600;
+
+// Claude Code counts as idle when history.jsonl has not changed for this long.
+var IDLE_AFTER = 1800;
+
+// The order of the guards is not arbitrary. The cheap ones come first, and the
+// idle check comes last because it costs a blocking read from disk — there is
+// no reason to pay for it on a path that leads nowhere anyway.
+var fetchDecision = function(state, opts) {
+    if (state.inFlight) return "in-flight";
+    if (!opts.pollingEnabled && !opts.manual) return "off";
+    if (opts.now - (state.lastCallAt || 0) < MIN_REQUEST_GAP) return "too-soon";
+    if (!opts.manual && opts.now < (state.backoffUntil || 0)) return "backoff";
+    if (!opts.manual && opts.skipWhenIdle && state.data && opts.isClaudeIdle())
+        return "idle";
+    return "fetch";
+};
+
+// Of the six outcomes the user only needs the three that mean "polling has
+// stopped and will not resume by itself within the minute". The rest pass in
+// silence: they resolve by the next tick.
+var PAUSED = ["off", "backoff", "idle"];
+
+var pausedReason = function(decision) {
+    return PAUSED.indexOf(decision) >= 0 ? decision : null;
+};
+
+var nextBackoff = function(current) {
+    return Math.min((current || BACKOFF_START) * 2, BACKOFF_MAX);
+};
+
+// The first request waits out the guard gap left by the previous call, or a
+// Cinnamon restart would leave the applet blank until the next tick.
+var kickDelay = function(lastCallAt, now) {
+    return Math.max(4, MIN_REQUEST_GAP - (now - (lastCallAt || 0)) + 1);
+};
+
+// Backing off only helps where retrying later can help. A refused token or a
+// forbidden endpoint is not cured by time, so it gets a name and no back-off.
+var describeHttpFailure = function(status) {
+    if (status === 401) return { error: { code: "token-expired" }, backoff: false };
+    if (status === 403) return { error: { code: "forbidden" }, backoff: false };
+    return { error: { code: "http", status: status },
+             backoff: status === 429 || status >= 500 };
+};
+
+if (typeof module !== "undefined")
+    module.exports = { MIN_REQUEST_GAP, BACKOFF_START, BACKOFF_MAX, IDLE_AFTER,
+                       fetchDecision, pausedReason, nextBackoff, kickDelay,
+                       describeHttpFailure };
