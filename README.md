@@ -18,9 +18,11 @@ can be hidden, shown on their own, or shown alongside.
 <br clear="left">
 
 Hovering gives a card with the percentages, the bars, a countdown to the reset
-and a verdict — *at this pace you hit the limit by 13:46*. It is recomputed as
-the pointer arrives, so the countdown and *updated N minutes ago* are always
-current rather than frozen at the moment of the last request.
+and a verdict — *at this pace you hit the limit by 13:46*. Both bars carry the
+same pace mark as the panel, at a size the eye can actually read: fill past the
+mark means you are ahead of the clock. The card is recomputed as the pointer
+arrives, so the countdown and *updated N minutes ago* are always current rather
+than frozen at the moment of the last request.
 
 ![The hover card](docs/tooltip.png)
 
@@ -118,7 +120,7 @@ another decides how to say it.
 npm test
 ```
 
-76 tests, run against a real captured API response rather than an invented
+83 tests, run against a real captured API response rather than an invented
 shape. Coverage of `lib/`: 100% of lines and functions.
 
 One branch in `lib/view.js` stays uncovered — the one that loads the sibling

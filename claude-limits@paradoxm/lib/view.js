@@ -63,18 +63,54 @@ var panelMarkup = function(data, opts) {
         + data.weekly.percent + "</span>";
 };
 
+// The pace mark is a whole cell of the bar recoloured in the card's own ink,
+// not a narrower glyph: a partial block such as ▏ draws only at the edge of
+// its cell and leaves the remaining seven eighths empty, punching a visible
+// hole through the bar.
+var PACE_MARK_SPAN = "alpha='85%'";
+
+// The cell the pace mark falls on, or -1 for no mark. Clamped inside the bar:
+// a mark past the last cell would simply vanish.
+var paceCell = function(fraction) {
+    return Math.min(BAR_CELLS - 1, Math.max(0, Math.round(fraction * BAR_CELLS)));
+};
+
+// Cells of one colour are emitted as one span, so the markup stays short even
+// though every cell is decided on its own.
+var barMarkup = function(percent, hex, markCell) {
+    var filled = Math.min(BAR_CELLS, Math.max(0, Math.round(percent / 100 * BAR_CELLS)));
+    var out = "";
+    var run = null;
+    var flush = function() {
+        if (run) out += "<span " + run.span + ">" + run.text + "</span>";
+        run = null;
+    };
+
+    for (var i = 0; i < BAR_CELLS; i++) {
+        var span = (i === markCell) ? PACE_MARK_SPAN
+                 : (i < filled ? "fgcolor='" + hex + "'" : "alpha='28%'");
+        if (run && run.span === span) run.text += "█";
+        else { flush(); run = { span: span, text: "█" }; }
+    }
+    flush();
+    return "<tt>" + out + "</tt>";
+};
+
 var limitBlock = function(title, limit, window, opts) {
     var t = opts.t;
     var hex = colorFor(limit.percent, opts.warn, opts.crit).hex;
-    var filled = Math.min(BAR_CELLS, Math.max(0, Math.round(limit.percent / 100 * BAR_CELLS)));
+    var p = Usage.pace(limit, window, opts.now);
+
+    // The same reference the panel bar carries, at a size the eye can read:
+    // fill past the mark means spending is ahead of the window's recovery.
+    var markCell = (p && opts.showPaceMark) ? paceCell(p.fraction) : -1;
 
     // The number leads and the label follows, quieter: the data matters more
     // than its name.
     var lines = [
         "<span fgcolor='" + hex + "'><b><big>" + limit.percent + "%</big></b></span>"
             + "   <span alpha='60%'>" + title + "</span>",
-        "<tt><span fgcolor='" + hex + "'>" + "█".repeat(filled) + "</span>"
-            + "<span alpha='28%'>" + "█".repeat(BAR_CELLS - filled) + "</span></tt>"
+        barMarkup(limit.percent, hex, markCell)
     ];
 
     if (limit.resetsAt) {
@@ -84,7 +120,6 @@ var limitBlock = function(title, limit, window, opts) {
         lines.push("<span alpha='60%'>" + when + "</span>");
     }
 
-    var p = Usage.pace(limit, window, opts.now);
     if (p && p.exhaustsAt)
         lines.push("<span fgcolor='" + WATCH.hex + "'>"
                    + t.exhaustedBy(Format.formatClock(p.exhaustsAt)) + "</span>");
@@ -164,5 +199,6 @@ var barsWidth = function() { return BAR_WIDTH * 2 + BAR_GAP; };
 
 if (typeof module !== "undefined")
     module.exports = { CALM, WATCH, ALARM, BAR_CELLS, BAR_WIDTH, BAR_GAP, LEAD,
-                       colorFor, isMuted, pauseText, titleMarkup, panelMarkup,
+                       colorFor, isMuted, pauseText, titleMarkup, panelMarkup, PACE_MARK_SPAN,
+                       paceCell, barMarkup,
                        limitBlock, tooltipMarkup, barLayout, barsWidth };
