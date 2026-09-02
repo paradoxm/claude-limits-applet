@@ -12,6 +12,7 @@ const data = (sessionPercent, weeklyPercent) => ({
     session: { percent: sessionPercent, resetsAt: RESET_SESSION },
     weekly: { percent: weeklyPercent, resetsAt: RESET_WEEK }
 });
+const MARK = "<span " + View.PACE_MARK_SPAN + ">█</span>";
 const opts = (over) => Object.assign({ warn: 80, crit: 90, now: NOW, showPaceMark: true,
                                        clickToRefresh: true, t: Strings.EN }, over);
 
@@ -59,12 +60,14 @@ test("the tooltip markup begins with a zero-width space too", () => {
 });
 
 test("the tooltip bar length follows the percentage", () => {
+    // Counted by colour rather than by span position: how the cells are
+    // grouped into spans is markup detail, the accent run is the behaviour.
     const cells = (percent) => {
-        const block = View.limitBlock("window", { percent, resetsAt: 0 },
-                                      Usage.SESSION_WINDOW, opts());
-        const filled = block.slice(block.indexOf("<tt>"),
-                                   block.indexOf("</span>", block.indexOf("<tt>")));
-        return (filled.match(/█/g) || []).length;
+        const hex = View.colorFor(percent, 80, 90).hex;
+        const bar = View.limitBlock("window", { percent, resetsAt: 0 },
+                                    Usage.SESSION_WINDOW, opts()).split("\n")[1];
+        const runs = bar.match(new RegExp("<span fgcolor='" + hex + "'>(█+)</span>", "g")) || [];
+        return runs.reduce((n, run) => n + (run.match(/█/g) || []).length, 0);
     };
     assert.equal(cells(0), 0);
     assert.equal(cells(50), View.BAR_CELLS / 2);
@@ -78,6 +81,74 @@ test("the bar never spills outside its own cells", () => {
                                       Usage.SESSION_WINDOW, opts());
         assert.equal((block.match(/█/g) || []).length, View.BAR_CELLS, "percent " + percent);
     }
+});
+
+test("the tooltip bar carries the same pace mark as the panel", () => {
+    // In the panel the mark is a couple of pixels tall; the card is where it
+    // can actually be read, so the horizontal bar carries it too.
+    const halfway = NOW + Usage.SESSION_WINDOW / 2;
+    const bar = View.limitBlock("window", { percent: 42, resetsAt: halfway },
+                                Usage.SESSION_WINDOW, opts()).split("\n")[1];
+    assert.ok(bar.includes(MARK));
+    // Half the window gone puts the mark on the middle cell, and the cells
+    // before it are the fill, so 42% sits visibly behind the pace.
+    const cellsBeforeMark = bar.slice(0, bar.indexOf(MARK))
+                               .replace(/<[^>]*>/g, "").length;
+    assert.equal(cellsBeforeMark, View.BAR_CELLS / 2);
+});
+
+test("the bar still spans exactly its own cells once the mark is in it", () => {
+    const halfway = NOW + Usage.SESSION_WINDOW / 2;
+    for (const percent of [0, 1, 42, 50, 99, 100]) {
+        const bar = View.limitBlock("window", { percent, resetsAt: halfway },
+                                    Usage.SESSION_WINDOW, opts()).split("\n")[1];
+        const cells = bar.replace(/<[^>]*>/g, "").length;
+        assert.equal(cells, View.BAR_CELLS, "percent " + percent);
+        assert.equal(bar.split(MARK).length - 1, 1);
+    }
+});
+
+test("fill runs past the mark when spending outruns the window", () => {
+    const halfway = NOW + Usage.SESSION_WINDOW / 2;
+    const bar = View.limitBlock("window", { percent: 90, resetsAt: halfway },
+                                Usage.SESSION_WINDOW, opts()).split("\n")[1];
+    // The mark cell is drawn out of the coloured run, so the accent colour has
+    // to appear on both sides of it.
+    const [before, after] = bar.split(MARK);
+    assert.ok(before.includes(View.ALARM.hex));
+    assert.ok(after.includes(View.ALARM.hex));
+});
+
+test("the tooltip mark obeys the same setting as the panel mark", () => {
+    const halfway = NOW + Usage.SESSION_WINDOW / 2;
+    const bar = View.limitBlock("window", { percent: 42, resetsAt: halfway },
+                                Usage.SESSION_WINDOW, opts({ showPaceMark: false }))
+                    .split("\n")[1];
+    assert.ok(!bar.includes(MARK));
+    assert.equal(bar.replace(/<[^>]*>/g, "").length, View.BAR_CELLS);
+});
+
+test("no mark is drawn while the pace is still unknown", () => {
+    const barelyStarted = NOW + Usage.SESSION_WINDOW - 360;
+    const bar = View.limitBlock("window", { percent: 4, resetsAt: barelyStarted },
+                                Usage.SESSION_WINDOW, opts()).split("\n")[1];
+    assert.ok(!bar.includes(MARK));
+});
+
+test("the mark never falls outside the bar", () => {
+    assert.equal(View.paceCell(0), 0);
+    assert.equal(View.paceCell(0.5), View.BAR_CELLS / 2);
+    // A window that has just about run out must not push the mark off the end.
+    assert.equal(View.paceCell(1), View.BAR_CELLS - 1);
+    assert.equal(View.paceCell(1.4), View.BAR_CELLS - 1);
+    assert.equal(View.paceCell(-0.2), 0);
+});
+
+test("both windows in the card get a mark, not just the session", () => {
+    const state = { data: { session: { percent: 42, resetsAt: NOW + Usage.SESSION_WINDOW / 2 },
+                            weekly: { percent: 18, resetsAt: NOW + Usage.WEEK_WINDOW / 2 } },
+                    fetchedAt: NOW };
+    assert.equal(View.tooltipMarkup(state, opts()).split(MARK).length - 1, 2);
 });
 
 test("the absolute reset time is shown only when the reset is today", () => {
