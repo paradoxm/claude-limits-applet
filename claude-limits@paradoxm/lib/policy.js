@@ -50,11 +50,28 @@ var kickDelay = function(lastCallAt, now) {
 var describeHttpFailure = function(status) {
     if (status === 401) return { error: { code: "token-expired" }, backoff: false };
     if (status === 403) return { error: { code: "forbidden" }, backoff: false };
-    return { error: { code: "http", status: status },
-             backoff: status === 429 || status >= 500 };
+    if (status === 429) return { error: { code: "rate-limited" }, backoff: true };
+    return { error: { code: "http", status: status }, backoff: status >= 500 };
+};
+
+// The usage endpoint answers a 429 with Retry-After: 3600 — six times our own
+// first step. Coming back before the server said so is how a rate limit turns
+// into a ban, so the header wins whenever it asks for longer than we planned.
+// An absurd value is still capped: a header cannot park the applet for a day.
+var RETRY_AFTER_MAX = 6 * 3600;
+
+var retryAfterSeconds = function(header) {
+    var seconds = parseInt(header, 10);
+    if (!(seconds > 0)) return 0;
+    return Math.min(seconds, RETRY_AFTER_MAX);
+};
+
+var backoffDelay = function(step, retryAfter) {
+    return Math.max(step || BACKOFF_START, retryAfter || 0);
 };
 
 if (typeof module !== "undefined")
     module.exports = { MIN_REQUEST_GAP, BACKOFF_START, BACKOFF_MAX, IDLE_AFTER,
-                       fetchDecision, pausedReason, nextBackoff, kickDelay,
-                       describeHttpFailure };
+                       RETRY_AFTER_MAX, fetchDecision, pausedReason, nextBackoff,
+                       kickDelay, describeHttpFailure, retryAfterSeconds,
+                       backoffDelay };

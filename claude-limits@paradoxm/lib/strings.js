@@ -67,7 +67,8 @@ var ERRORS = {
     unparsable: "the credentials file does not parse",
     "no-token": "the file has no claudeAiOauth.accessToken",
     "token-expired": "the token has expired — run Claude Code and it will refresh it",
-    forbidden: "access to the endpoint is forbidden (403)"
+    forbidden: "access to the endpoint is forbidden (403)",
+    "rate-limited": "the endpoint is rate limiting us (429) — waiting it out"
 };
 
 var errorText = function(error) {

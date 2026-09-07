@@ -40,6 +40,8 @@ test("error text is one English set, whatever the panel language", () => {
     assert.equal(Strings.errorText({ code: "forbidden" }), Strings.ERRORS.forbidden);
     assert.equal(Strings.errorText({ code: "unparsable" }), Strings.ERRORS.unparsable);
     assert.equal(Strings.errorText({ code: "no-token" }), Strings.ERRORS["no-token"]);
+    assert.equal(Strings.errorText({ code: "rate-limited" }),
+                 Strings.ERRORS["rate-limited"]);
 });
 
 test("error text keeps the detail that makes a failure actionable", () => {

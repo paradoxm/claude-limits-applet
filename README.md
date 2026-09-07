@@ -86,6 +86,11 @@ the polling is deliberately cautious:
 - **Exponential back-off** after a 429 or a 5xx: ten minutes doubling to an
   hour, reset by a successful answer. A 401 or 403 gets no back-off — time does
   not cure them, and the card says what to do instead of showing a code.
+- **`Retry-After` wins whenever it asks for longer than that.** The 429 from
+  this endpoint carries `Retry-After: 3600` — six times the first back-off
+  step, and returning before the server said so is how a rate limit turns into
+  a ban. A shorter value, or the date form the header also allows, leaves our
+  own ladder in charge.
 - **The whole polling state survives a Cinnamon restart** — both the time of
   the last request and the position on the back-off ladder. Otherwise
   restarting the panel during an hour-long back-off would reset it to zero.
@@ -120,7 +125,7 @@ another decides how to say it.
 npm test
 ```
 
-83 tests, run against a real captured API response rather than an invented
+86 tests, run against a real captured API response rather than an invented
 shape. Coverage of `lib/`: 100% of lines and functions.
 
 One branch in `lib/view.js` stays uncovered — the one that loads the sibling
