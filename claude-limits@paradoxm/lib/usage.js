@@ -44,6 +44,23 @@ var parseUsage = function(json) {
     };
 };
 
+// The last answer of the previous session, read back from the settings. It is
+// re-parsed rather than trusted: it may have been written by an older version,
+// or by a shape Anthropic has since changed. parseUsage answers for any object
+// at all — a shape it no longer understands comes back as a confident 0% — so
+// a reset time is what tells a real answer from a husk. It is the one field
+// that cannot be invented from nothing.
+var restoreUsage = function(text) {
+    if (!text) return null;
+    var data;
+    try {
+        data = parseUsage(JSON.parse(text));
+    } catch (e) {
+        return null;
+    }
+    return (data.session.resetsAt || data.weekly.resetsAt) ? data : null;
+};
+
 // The window is restored whole at the reset, so spending can be compared
 // against the share of time already gone. exhaustsAt is zero when the current
 // pace lasts until the reset.
@@ -62,4 +79,4 @@ var pace = function(limit, window, now) {
 
 if (typeof module !== "undefined")
     module.exports = { SESSION_WINDOW, WEEK_WINDOW, PACE_MIN_ELAPSED,
-                       parseIso8601, parseUsage, pace };
+                       parseIso8601, parseUsage, restoreUsage, pace };

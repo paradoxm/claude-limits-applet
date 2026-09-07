@@ -106,5 +106,13 @@
     "server-wait-until": {
         "type": "generic",
         "default": 0
+    },
+    "last-response": {
+        "type": "generic",
+        "default": ""
+    },
+    "last-fetched-at": {
+        "type": "generic",
+        "default": 0
     }
 }

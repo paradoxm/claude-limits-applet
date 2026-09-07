@@ -96,3 +96,26 @@ test("pace reports elapsed share at zero spending without dividing by zero", () 
     assert.equal(p.exhaustsAt, 0);
     assert.equal(p.fraction, 0.5);
 });
+
+test("the answer kept from the previous session comes back as it went in", () => {
+    const restored = Usage.restoreUsage(JSON.stringify(REAL_RESPONSE));
+    assert.deepEqual(restored, Usage.parseUsage(REAL_RESPONSE));
+});
+
+test("a kept answer that no longer parses is dropped, not shown as zero", () => {
+    // parseUsage answers for any object at all, so an unrecognised shape would
+    // otherwise render as a confident 0% — worse than showing nothing.
+    assert.equal(Usage.restoreUsage(""), null);
+    assert.equal(Usage.restoreUsage(null), null);
+    assert.equal(Usage.restoreUsage("not json"), null);
+    assert.equal(Usage.restoreUsage("{}"), null);
+    assert.equal(Usage.restoreUsage(JSON.stringify({ limits: [] })), null);
+    assert.equal(Usage.restoreUsage(JSON.stringify({ limits: [{ kind: "session", percent: 40 }] })),
+                 null);
+});
+
+test("a kept answer survives the older response shape too", () => {
+    const restored = Usage.restoreUsage(JSON.stringify(LEGACY_RESPONSE));
+    assert.equal(restored.session.percent, Usage.parseUsage(LEGACY_RESPONSE).session.percent);
+    assert.ok(restored.session.resetsAt > 0);
+});
