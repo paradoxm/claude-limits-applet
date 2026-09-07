@@ -108,6 +108,9 @@ the polling is deliberately cautious:
   dropped instead of shown as a confident 0%.
 - **The pause is visible.** While a back-off holds, the card says until when,
   and the indicator is dimmed.
+- **A pause that has an end is resumed at that end**, not at whatever moment
+  the interval next lands on. It is the same single request either way, just
+  not up to ten minutes late.
 - **Skipping while idle**: if `~/.claude/history.jsonl` has not changed for
   half an hour there is nothing being spent, so the poll is skipped.
 
@@ -145,7 +148,7 @@ and the mismatch surfaces as a missing function.
 npm test
 ```
 
-92 tests, run against a real captured API response rather than an invented
+94 tests, run against a real captured API response rather than an invented
 shape. Coverage of `lib/`: 100% of lines and functions.
 
 One branch in `lib/view.js` stays uncovered — the one that loads the sibling
