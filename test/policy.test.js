@@ -126,6 +126,25 @@ test("the first request after a Cinnamon restart waits out the remaining guard",
     assert.equal(Policy.kickDelay(NOW, NOW), Policy.MIN_REQUEST_GAP + 1);
 });
 
+test("a pause with a known end schedules the request for that end", () => {
+    // Otherwise an hour-long rate limit against a ten-minute interval leaves
+    // the panel blank for up to ten minutes after the endpoint recovers.
+    const limited = { serverWaitUntil: NOW + 1800, backoffUntil: NOW + 1800 };
+    assert.equal(Policy.resumeDelay(limited, "rate-limited", NOW),
+                 1800 + Policy.RESUME_MARGIN);
+    assert.equal(Policy.resumeDelay(limited, "backoff", NOW), 1800 + Policy.RESUME_MARGIN);
+});
+
+test("a pause without an end, or already over, schedules nothing", () => {
+    // The interval is in charge of those; a one-shot would only duplicate it.
+    assert.equal(Policy.resumeDelay(ready(), "off", NOW), 0);
+    assert.equal(Policy.resumeDelay(ready(), "idle", NOW), 0);
+    assert.equal(Policy.resumeDelay(ready(), "too-soon", NOW), 0);
+    assert.equal(Policy.resumeDelay(ready(), "rate-limited", NOW), 0);
+    assert.equal(Policy.resumeDelay({ serverWaitUntil: NOW }, "rate-limited", NOW), 0);
+    assert.equal(Policy.resumeDelay({ backoffUntil: NOW - 1 }, "backoff", NOW), 0);
+});
+
 test("we only back off from answers worth retrying later", () => {
     assert.equal(Policy.describeHttpFailure(429).backoff, true);
     assert.equal(Policy.describeHttpFailure(500).backoff, true);

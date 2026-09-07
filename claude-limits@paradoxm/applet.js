@@ -102,7 +102,7 @@ ClaudeLimitsApplet.prototype = {
         this._resize(panelHeight);
         this._render();
         this._renderTooltip();
-        this._kickOff();
+        this._kickOff(Policy.kickDelay(this._state.lastCallAt, this._now()));
         this._restartTimer();
     },
 
@@ -167,6 +167,8 @@ ClaudeLimitsApplet.prototype = {
                 this._state.pausedReason = paused;
                 this._render();
             }
+            const resume = Policy.resumeDelay(this._state, decision, now);
+            if (resume) this._kickOff(resume);
             return;
         }
         this._state.pausedReason = null;
@@ -326,13 +328,22 @@ ClaudeLimitsApplet.prototype = {
             });
     },
 
-    _kickOff: function() {
-        this._kickId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW,
-            Policy.kickDelay(this._state.lastCallAt, this._now()), () => {
-                this._kickId = 0;
-                this._fetch(false);
-                return GLib.SOURCE_REMOVE;
-            });
+    // The one-shot: the first request after start-up, and the one that resumes
+    // a pause at the moment it lifts. Only ever one is pending.
+    _kickOff: function(delay) {
+        this._stopKick();
+        this._kickId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, delay, () => {
+            this._kickId = 0;
+            this._fetch(false);
+            return GLib.SOURCE_REMOVE;
+        });
+    },
+
+    _stopKick: function() {
+        if (this._kickId > 0) {
+            GLib.source_remove(this._kickId);
+            this._kickId = 0;
+        }
     },
 
     _stopTimer: function() {
@@ -366,10 +377,7 @@ ClaudeLimitsApplet.prototype = {
 
     on_applet_removed_from_panel: function() {
         this._stopTimer();
-        if (this._kickId > 0) {
-            GLib.source_remove(this._kickId);
-            this._kickId = 0;
-        }
+        this._stopKick();
         if (this._enterId) {
             this.actor.disconnect(this._enterId);
             this._enterId = 0;

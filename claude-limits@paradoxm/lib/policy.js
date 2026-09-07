@@ -52,6 +52,21 @@ var kickDelay = function(lastCallAt, now) {
     return Math.max(4, MIN_REQUEST_GAP - (now - (lastCallAt || 0)) + 1);
 };
 
+// A few seconds past the moment the wall lifts, so a clock skew of one second
+// does not spend the attempt on a refusal that renews the whole hour.
+var RESUME_MARGIN = 5;
+
+// A pause with a known end deserves a request at that end rather than at
+// whatever moment the interval next happens to land on. An hour-long rate
+// limit against a ten-minute interval would otherwise keep the panel blank for
+// up to ten minutes after the endpoint had started answering again.
+var resumeDelay = function(state, decision, now) {
+    var until = decision === "rate-limited" ? state.serverWaitUntil
+              : decision === "backoff" ? state.backoffUntil
+              : 0;
+    return (until && until > now) ? until - now + RESUME_MARGIN : 0;
+};
+
 // Backing off only helps where retrying later can help. A refused token or a
 // forbidden endpoint is not cured by time, so it gets a name and no back-off.
 var describeHttpFailure = function(status) {
@@ -79,6 +94,6 @@ var backoffDelay = function(step, retryAfter) {
 
 if (typeof module !== "undefined")
     module.exports = { MIN_REQUEST_GAP, BACKOFF_START, BACKOFF_MAX, IDLE_AFTER,
-                       RETRY_AFTER_MAX, fetchDecision, pausedReason, nextBackoff,
-                       kickDelay, describeHttpFailure, retryAfterSeconds,
-                       backoffDelay };
+                       RETRY_AFTER_MAX, RESUME_MARGIN, fetchDecision, pausedReason,
+                       nextBackoff, kickDelay, resumeDelay, describeHttpFailure,
+                       retryAfterSeconds, backoffDelay };
