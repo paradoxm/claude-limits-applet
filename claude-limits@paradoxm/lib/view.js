@@ -48,6 +48,8 @@ var isMuted = function(state) {
 var pauseText = function(state, t) {
     if (state.pausedReason === "off") return t.pausedOff;
     if (state.pausedReason === "idle") return t.pausedIdle;
+    if (state.pausedReason === "rate-limited")
+        return t.pausedRateLimited(Format.formatClock(state.serverWaitUntil));
     return state.backoffUntil
         ? t.pausedBackoffUntil(Format.formatClock(state.backoffUntil))
         : t.pausedBackoff;

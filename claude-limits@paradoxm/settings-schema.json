@@ -102,5 +102,9 @@
     "backoff-step": {
         "type": "generic",
         "default": 600
+    },
+    "server-wait-until": {
+        "type": "generic",
+        "default": 0
     }
 }

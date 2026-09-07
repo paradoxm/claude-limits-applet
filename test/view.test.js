@@ -253,6 +253,18 @@ test("a pause after a server refusal names the time it holds until", () => {
     assert.match(noTime, /polling paused after the server refused/);
 });
 
+test("a rate limit says a click will not help, unlike our own back-off", () => {
+    // The card invites a click on every other pause; here a click would make
+    // things worse, so the footer has to say so.
+    const state = { data: data(71, 9), fetchedAt: NOW, pausedReason: "rate-limited",
+                    serverWaitUntil: NOW + 1800 };
+    assert.match(View.tooltipMarkup(state, opts()),
+                 /rate limited until \d\d:\d\d; asking earlier restarts the hour/);
+    assert.match(View.tooltipMarkup(state, opts({ t: Strings.RU })),
+                 /лимит запросов до \d\d:\d\d, запрос раньше продлит час/);
+    assert.equal(View.isMuted(state), true);
+});
+
 test("an error outranks a pause: the breakage is reported first", () => {
     const markup = View.tooltipMarkup(
         { data: data(71, 9), fetchedAt: NOW, error: { code: "http", status: 500 },

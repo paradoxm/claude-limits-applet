@@ -19,6 +19,13 @@ var IDLE_AFTER = 1800;
 var fetchDecision = function(state, opts) {
     if (state.inFlight) return "in-flight";
     if (!opts.pollingEnabled && !opts.manual) return "off";
+    // Our own back-off is a guess — we do not know the endpoint is still
+    // refusing, so a click is allowed to go and find out. A Retry-After is not
+    // a guess: the server named the time. And asking before it elapses does
+    // not merely fail, it comes back with a fresh Retry-After counted from the
+    // new attempt, so an impatient click keeps the hour permanently ahead of
+    // itself. This is the one wait a click cannot override.
+    if (opts.now < (state.serverWaitUntil || 0)) return "rate-limited";
     if (opts.now - (state.lastCallAt || 0) < MIN_REQUEST_GAP) return "too-soon";
     if (!opts.manual && opts.now < (state.backoffUntil || 0)) return "backoff";
     if (!opts.manual && opts.skipWhenIdle && state.data && opts.isClaudeIdle())
@@ -26,10 +33,10 @@ var fetchDecision = function(state, opts) {
     return "fetch";
 };
 
-// Of the six outcomes the user only needs the three that mean "polling has
-// stopped and will not resume by itself within the minute". The rest pass in
-// silence: they resolve by the next tick.
-var PAUSED = ["off", "backoff", "idle"];
+// Of the outcomes the user only needs those that mean "polling has stopped and
+// will not resume by itself within the minute". The rest pass in silence: they
+// resolve by the next tick.
+var PAUSED = ["off", "rate-limited", "backoff", "idle"];
 
 var pausedReason = function(decision) {
     return PAUSED.indexOf(decision) >= 0 ? decision : null;
