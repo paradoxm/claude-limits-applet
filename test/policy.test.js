@@ -99,11 +99,38 @@ test("the first request after a Cinnamon restart waits out the remaining guard",
 });
 
 test("we only back off from answers worth retrying later", () => {
-    assert.deepEqual(Policy.describeHttpFailure(429),
-                     { error: { code: "http", status: 429 }, backoff: true });
+    assert.equal(Policy.describeHttpFailure(429).backoff, true);
     assert.equal(Policy.describeHttpFailure(500).backoff, true);
     assert.equal(Policy.describeHttpFailure(503).backoff, true);
     assert.equal(Policy.describeHttpFailure(418).backoff, false);
+    assert.deepEqual(Policy.describeHttpFailure(418).error,
+                     { code: "http", status: 418 });
+});
+
+test("a 429 is named, not left as a bare code: it is the one we expect", () => {
+    assert.deepEqual(Policy.describeHttpFailure(429),
+                     { error: { code: "rate-limited" }, backoff: true });
+});
+
+test("Retry-After is read as seconds, and nonsense is read as absent", () => {
+    assert.equal(Policy.retryAfterSeconds("3600"), 3600);
+    assert.equal(Policy.retryAfterSeconds(null), 0);
+    assert.equal(Policy.retryAfterSeconds(""), 0);
+    assert.equal(Policy.retryAfterSeconds("0"), 0);
+    assert.equal(Policy.retryAfterSeconds("-60"), 0);
+    // A date form, which the header also allows, is not seconds. Treating it as
+    // absent leaves our own escalation in charge, which is the safe direction.
+    assert.equal(Policy.retryAfterSeconds("Wed, 21 Oct 2026 07:28:00 GMT"), 0);
+    assert.equal(Policy.retryAfterSeconds(String(24 * 3600)), Policy.RETRY_AFTER_MAX);
+});
+
+test("the server's wait wins when it is longer, and never shortens ours", () => {
+    // What the live endpoint actually sends with a 429: an hour, against a
+    // first step of ten minutes.
+    assert.equal(Policy.backoffDelay(Policy.BACKOFF_START, 3600), 3600);
+    assert.equal(Policy.backoffDelay(Policy.BACKOFF_MAX, 60), Policy.BACKOFF_MAX);
+    assert.equal(Policy.backoffDelay(Policy.BACKOFF_START, 0), Policy.BACKOFF_START);
+    assert.equal(Policy.backoffDelay(0, 0), Policy.BACKOFF_START);
 });
 
 test("401 and 403 get names rather than codes: time does not cure them", () => {

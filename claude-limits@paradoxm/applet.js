@@ -183,10 +183,15 @@ ClaudeLimitsApplet.prototype = {
             this._state.inFlight = false;
             try {
                 const bytes = session.send_and_read_finish(result);
-                const status = message.get_status();
+                // status_code, not get_status(): Soup.Status is an enumeration
+                // and 429 is not one of its members, so get_status() throws
+                // instead of returning it — the one status we most need to see.
+                const status = message.status_code;
                 if (status !== 200) {
                     const failure = Policy.describeHttpFailure(status);
-                    this._fail(failure.error, failure.backoff);
+                    const retryAfter = Policy.retryAfterSeconds(
+                        message.get_response_headers().get_one("Retry-After"));
+                    this._fail(failure.error, failure.backoff, retryAfter);
                     return;
                 }
                 this._accept(JSON.parse(ByteArray.toString(bytes.get_data())));
@@ -205,11 +210,12 @@ ClaudeLimitsApplet.prototype = {
         this._render();
     },
 
-    _fail: function(error, backoff) {
+    _fail: function(error, backoff, retryAfter) {
         this._state.error = error;
         if (backoff) {
             this._state.pausedReason = "backoff";
-            this._setBackoff(this._now() + this._backoff, Policy.nextBackoff(this._backoff));
+            this._setBackoff(this._now() + Policy.backoffDelay(this._backoff, retryAfter),
+                             Policy.nextBackoff(this._backoff));
         }
         global.logWarning(UUID + ": " + Strings.errorText(error));
         this._render();
