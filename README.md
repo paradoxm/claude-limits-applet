@@ -58,7 +58,7 @@ Right-click the applet → *Configure*.
 | Red from | 90% | Raised to the amber threshold if set below it |
 | Poll the usage endpoint | on | Turns all network access off; the applet stays |
 | Polling interval | 10 minutes | 1 to 60 |
-| Refresh on click | on | A left click fetches fresh data |
+| Refresh on click | on | A left click fetches fresh data, unless rate limited |
 | Skip polling while idle | on | Skips the poll while Claude Code is not working |
 | Credentials file | `~/.claude/.credentials.json` | For a non-standard install |
 
@@ -91,6 +91,12 @@ the polling is deliberately cautious:
   step, and returning before the server said so is how a rate limit turns into
   a ban. A shorter value, or the date form the header also allows, leaves our
   own ladder in charge.
+- **A click cannot shorten the wait the server named.** It can shorten our own
+  back-off, which is only a guess that the endpoint is still refusing. It
+  cannot shorten a `Retry-After`, because a request sent inside that hour comes
+  back refused *with the hour counted from the new attempt* — an impatient
+  click would keep the limit permanently an hour ahead of itself. The card says
+  so instead of inviting the click.
 - **The whole polling state survives a Cinnamon restart** — both the time of
   the last request and the position on the back-off ladder. Otherwise
   restarting the panel during an hour-long back-off would reset it to zero.
@@ -133,7 +139,7 @@ and the mismatch surfaces as a missing function.
 npm test
 ```
 
-86 tests, run against a real captured API response rather than an invented
+89 tests, run against a real captured API response rather than an invented
 shape. Coverage of `lib/`: 100% of lines and functions.
 
 One branch in `lib/view.js` stays uncovered — the one that loads the sibling

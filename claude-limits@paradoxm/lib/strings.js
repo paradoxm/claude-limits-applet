@@ -26,6 +26,9 @@ var EN = {
     pausedOff: "polling is switched off in the settings",
     pausedIdle: "polling paused, Claude Code is idle",
     pausedBackoff: "polling paused after the server refused",
+    pausedRateLimited: function(clock) {
+        return "rate limited until " + clock + "; asking earlier restarts the hour";
+    },
     pausedBackoffUntil: function(clock) {
         return "polling paused until " + clock + " after the server refused";
     },
@@ -54,6 +57,9 @@ var RU = {
     pausedOff: "опрос выключен в настройках",
     pausedIdle: "опрос на паузе, Claude Code простаивает",
     pausedBackoff: "опрос приостановлен после отказа сервера",
+    pausedRateLimited: function(clock) {
+        return "лимит запросов до " + clock + ", запрос раньше продлит час";
+    },
     pausedBackoffUntil: function(clock) {
         return "опрос приостановлен до " + clock + " после отказа сервера";
     },

@@ -32,7 +32,8 @@ ClaudeLimitsApplet.prototype = {
         this.setAllowedLayout(Applet.AllowedLayout.BOTH);
 
         this._state = { data: null, fetchedAt: 0, error: null, pausedReason: null,
-                        inFlight: false, backoffUntil: 0, lastCallAt: 0 };
+                        inFlight: false, backoffUntil: 0, serverWaitUntil: 0,
+                        lastCallAt: 0 };
 
         this.settings = new Settings.AppletSettings(this, UUID, instanceId);
         const redraw = this._onSettingsChanged.bind(this);
@@ -56,8 +57,10 @@ ClaudeLimitsApplet.prototype = {
         this.settings.bind("last-api-call-time", "lastApiCallTime");
         this.settings.bind("backoff-until", "backoffUntil");
         this.settings.bind("backoff-step", "backoffStep");
+        this.settings.bind("server-wait-until", "serverWaitUntil");
         this._state.lastCallAt = this.lastApiCallTime || 0;
         this._state.backoffUntil = this.backoffUntil || 0;
+        this._state.serverWaitUntil = this.serverWaitUntil || 0;
         this._backoff = this.backoffStep || Policy.BACKOFF_START;
 
         this._userAgent = Auth.userAgentFor(this._claudeSymlinkTarget());
@@ -207,18 +210,27 @@ ClaudeLimitsApplet.prototype = {
         this._state.error = null;
         this._state.pausedReason = null;
         this._setBackoff(0, Policy.BACKOFF_START);
+        this._setServerWait(0);
         this._render();
     },
 
     _fail: function(error, backoff, retryAfter) {
         this._state.error = error;
+        if (retryAfter) this._setServerWait(this._now() + retryAfter);
         if (backoff) {
-            this._state.pausedReason = "backoff";
+            this._state.pausedReason = retryAfter ? "rate-limited" : "backoff";
             this._setBackoff(this._now() + Policy.backoffDelay(this._backoff, retryAfter),
                              Policy.nextBackoff(this._backoff));
         }
         global.logWarning(UUID + ": " + Strings.errorText(error));
         this._render();
+    },
+
+    // The wait the server named, kept apart from our own ladder because a click
+    // may override the ladder and may not override this.
+    _setServerWait: function(until) {
+        this._state.serverWaitUntil = until;
+        this.serverWaitUntil = until;
     },
 
     _setBackoff: function(until, step) {

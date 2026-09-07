@@ -40,6 +40,33 @@ test("after a 429 the timer waits out the back-off while a click gets through", 
     assert.equal(Policy.fetchDecision(state, opts()), "fetch");
 });
 
+test("a wait the server named is the one a click cannot override", () => {
+    // Our own back-off yields to a click; a Retry-After must not, because the
+    // refused request comes back with the hour counted from the new attempt.
+    const state = Object.assign(ready(), { serverWaitUntil: NOW + 1800 });
+    assert.equal(Policy.fetchDecision(state, opts()), "rate-limited");
+    assert.equal(Policy.fetchDecision(state, opts({ manual: true })), "rate-limited");
+
+    state.serverWaitUntil = NOW;
+    assert.equal(Policy.fetchDecision(state, opts({ manual: true })), "fetch");
+});
+
+test("the named wait outranks the guesses but not the switch or a live request", () => {
+    const limited = { serverWaitUntil: NOW + 1800 };
+    // Reported as rate limited rather than as our own back-off or as idle:
+    // those would suggest a click could help.
+    assert.equal(Policy.fetchDecision(Object.assign(ready(), limited,
+                                                    { backoffUntil: NOW + 60 }), opts()),
+                 "rate-limited");
+    assert.equal(Policy.fetchDecision(Object.assign(ready(), limited, { lastCallAt: NOW }),
+                                      opts({ manual: true })), "rate-limited");
+    assert.equal(Policy.fetchDecision(Object.assign(ready(), limited,
+                                                    { inFlight: true }), opts()),
+                 "in-flight");
+    assert.equal(Policy.fetchDecision(Object.assign(ready(), limited),
+                                      opts({ pollingEnabled: false })), "off");
+});
+
 test("an idle Claude Code skips the poll only when the setting says so", () => {
     const asleep = { isClaudeIdle: () => true };
     const w = (over) => Policy.fetchDecision(ready(), opts(Object.assign({}, asleep, over)));
@@ -73,6 +100,7 @@ test("only the pauses that will not lift by themselves are shown to the user", (
     assert.equal(Policy.pausedReason("off"), "off");
     assert.equal(Policy.pausedReason("idle"), "idle");
     assert.equal(Policy.pausedReason("backoff"), "backoff");
+    assert.equal(Policy.pausedReason("rate-limited"), "rate-limited");
     // These resolve by the next tick; there is nothing to explain.
     assert.equal(Policy.pausedReason("fetch"), null);
     assert.equal(Policy.pausedReason("too-soon"), null);
