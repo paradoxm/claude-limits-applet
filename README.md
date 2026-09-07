@@ -119,6 +119,14 @@ is the only layer with side effects: widgets, network, files, cairo, timers.
 Failures travel as codes, not sentences: one module decides what went wrong,
 another decides how to say it.
 
+One thing to know when editing `lib/`: reloading the applet does not pick the
+change up. Cinnamon re-reads `applet.js`, but the sibling modules come from the
+GJS importer, whose properties are non-configurable, so Cinnamon's own
+`delete imports.applets[uuid]` returns `false` and the old module object stays
+for the life of the process. Restart the panel instead — `cinnamon --replace`.
+A reload is worse than none here: new `applet.js` runs against a stale `lib/`
+and the mismatch surfaces as a missing function.
+
 ## Tests
 
 ```sh
