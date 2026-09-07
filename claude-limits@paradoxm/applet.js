@@ -58,9 +58,17 @@ ClaudeLimitsApplet.prototype = {
         this.settings.bind("backoff-until", "backoffUntil");
         this.settings.bind("backoff-step", "backoffStep");
         this.settings.bind("server-wait-until", "serverWaitUntil");
+        this.settings.bind("last-response", "lastResponse");
+        this.settings.bind("last-fetched-at", "lastFetchedAt");
         this._state.lastCallAt = this.lastApiCallTime || 0;
         this._state.backoffUntil = this.backoffUntil || 0;
         this._state.serverWaitUntil = this.serverWaitUntil || 0;
+        // Without this the panel shows dots after every Cinnamon restart until
+        // the next successful request — which, while the endpoint is rate
+        // limiting us, can be an hour away. Stale figures dimmed and labelled
+        // "updated 40 minutes ago" beat no figures at all.
+        this._state.data = Usage.restoreUsage(this.lastResponse);
+        this._state.fetchedAt = this._state.data ? (this.lastFetchedAt || 0) : 0;
         this._backoff = this.backoffStep || Policy.BACKOFF_START;
 
         this._userAgent = Auth.userAgentFor(this._claudeSymlinkTarget());
@@ -207,6 +215,8 @@ ClaudeLimitsApplet.prototype = {
     _accept: function(json) {
         this._state.data = Usage.parseUsage(json);
         this._state.fetchedAt = this._now();
+        this.lastResponse = JSON.stringify(json);
+        this.lastFetchedAt = this._state.fetchedAt;
         this._state.error = null;
         this._state.pausedReason = null;
         this._setBackoff(0, Policy.BACKOFF_START);

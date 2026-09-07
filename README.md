@@ -97,9 +97,15 @@ the polling is deliberately cautious:
   back refused *with the hour counted from the new attempt* — an impatient
   click would keep the limit permanently an hour ahead of itself. The card says
   so instead of inviting the click.
-- **The whole polling state survives a Cinnamon restart** — both the time of
-  the last request and the position on the back-off ladder. Otherwise
-  restarting the panel during an hour-long back-off would reset it to zero.
+- **The whole polling state survives a Cinnamon restart** — the time of the
+  last request, the position on the back-off ladder, and the wait the server
+  named. Otherwise restarting the panel during an hour-long back-off would
+  reset it to zero.
+- **So do the last figures.** They come back dimmed and labelled with their
+  age, because the alternative is an empty panel until the next successful
+  request — up to an hour of it while a rate limit holds. A kept answer is
+  re-parsed rather than trusted, and one that no longer reads as usage is
+  dropped instead of shown as a confident 0%.
 - **The pause is visible.** While a back-off holds, the card says until when,
   and the indicator is dimmed.
 - **Skipping while idle**: if `~/.claude/history.jsonl` has not changed for
@@ -139,7 +145,7 @@ and the mismatch surfaces as a missing function.
 npm test
 ```
 
-89 tests, run against a real captured API response rather than an invented
+92 tests, run against a real captured API response rather than an invented
 shape. Coverage of `lib/`: 100% of lines and functions.
 
 One branch in `lib/view.js` stays uncovered — the one that loads the sibling
