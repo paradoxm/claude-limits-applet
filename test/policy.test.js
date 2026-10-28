@@ -4,8 +4,7 @@ const Policy = require("../claude-limits@paradoxm/lib/policy.js");
 
 const NOW = 1788340000;
 const ready = () => ({ data: {}, lastCallAt: 0, backoffUntil: 0, inFlight: false });
-const opts = (over) => Object.assign({ now: NOW, manual: false, pollingEnabled: true,
-                                       skipWhenIdle: false, isClaudeIdle: () => false }, over);
+const opts = (over) => Object.assign({ now: NOW, manual: false, pollingEnabled: true }, over);
 
 test("an ordinary tick goes to the network", () => {
     assert.equal(Policy.fetchDecision(ready(), opts()), "fetch");
@@ -53,7 +52,7 @@ test("a wait the server named is the one a click cannot override", () => {
 
 test("the named wait outranks the guesses but not the switch or a live request", () => {
     const limited = { serverWaitUntil: NOW + 1800 };
-    // Reported as rate limited rather than as our own back-off or as idle:
+    // Reported as rate limited rather than as our own back-off:
     // those would suggest a click could help.
     assert.equal(Policy.fetchDecision(Object.assign(ready(), limited,
                                                     { backoffUntil: NOW + 60 }), opts()),
@@ -67,38 +66,8 @@ test("the named wait outranks the guesses but not the switch or a live request",
                                       opts({ pollingEnabled: false })), "off");
 });
 
-test("an idle Claude Code skips the poll only when the setting says so", () => {
-    const asleep = { isClaudeIdle: () => true };
-    const w = (over) => Policy.fetchDecision(ready(), opts(Object.assign({}, asleep, over)));
-    assert.equal(w({ skipWhenIdle: true }), "idle");
-    assert.equal(w({ skipWhenIdle: false }), "fetch");
-    assert.equal(w({ skipWhenIdle: true, manual: true }), "fetch");
-});
-
-test("the first request happens even during idleness: there is nothing to show yet", () => {
-    const state = Object.assign(ready(), { data: null });
-    assert.equal(Policy.fetchDecision(state, opts({ skipWhenIdle: true,
-                                                    isClaudeIdle: () => true })), "fetch");
-});
-
-test("the idle check does not run until the other guards have passed", () => {
-    // It costs a blocking read from disk inside the Cinnamon process, so it
-    // must not be called on a path that leads nowhere anyway.
-    let calls = 0;
-    const counting = { skipWhenIdle: true, isClaudeIdle: () => { calls++; return true; } };
-    Policy.fetchDecision(Object.assign(ready(), { inFlight: true }), opts(counting));
-    Policy.fetchDecision(ready(), opts(Object.assign({ pollingEnabled: false }, counting)));
-    Policy.fetchDecision(Object.assign(ready(), { lastCallAt: NOW }), opts(counting));
-    Policy.fetchDecision(Object.assign(ready(), { backoffUntil: NOW + 300 }), opts(counting));
-    assert.equal(calls, 0);
-
-    Policy.fetchDecision(ready(), opts(counting));
-    assert.equal(calls, 1);
-});
-
 test("only the pauses that will not lift by themselves are shown to the user", () => {
     assert.equal(Policy.pausedReason("off"), "off");
-    assert.equal(Policy.pausedReason("idle"), "idle");
     assert.equal(Policy.pausedReason("backoff"), "backoff");
     assert.equal(Policy.pausedReason("rate-limited"), "rate-limited");
     // These resolve by the next tick; there is nothing to explain.
@@ -138,7 +107,6 @@ test("a pause with a known end schedules the request for that end", () => {
 test("a pause without an end, or already over, schedules nothing", () => {
     // The interval is in charge of those; a one-shot would only duplicate it.
     assert.equal(Policy.resumeDelay(ready(), "off", NOW), 0);
-    assert.equal(Policy.resumeDelay(ready(), "idle", NOW), 0);
     assert.equal(Policy.resumeDelay(ready(), "too-soon", NOW), 0);
     assert.equal(Policy.resumeDelay(ready(), "rate-limited", NOW), 0);
     assert.equal(Policy.resumeDelay({ serverWaitUntil: NOW }, "rate-limited", NOW), 0);

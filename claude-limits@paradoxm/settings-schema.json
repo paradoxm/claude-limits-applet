@@ -65,7 +65,7 @@
     },
     "update-interval": {
         "type": "spinbutton",
-        "default": 10,
+        "default": 5,
         "min": 1,
         "max": 60,
         "step": 1,
@@ -79,17 +79,25 @@
         "description": "Refresh on click",
         "tooltip": "A left click on the indicator fetches fresh data, at most once every 30 seconds."
     },
-    "skip-when-idle": {
-        "type": "switch",
-        "default": true,
-        "description": "Skip polling while Claude Code is idle",
-        "tooltip": "If ~/.claude/history.jsonl has not changed for half an hour there is nothing to spend, and the poll is skipped: needless requests only bring a 429 closer. The indicator is dimmed meanwhile, and a click still refreshes."
-    },
     "credentials-path": {
         "type": "filechooser",
         "default": "",
         "description": "Credentials file",
         "tooltip": "Leave empty for ~/.claude/.credentials.json. The file is only ever read."
+    },
+    "head-claude-stop": {
+        "type": "header",
+        "description": "Stopping Claude Code"
+    },
+    "limit-threshold": {
+        "type": "spinbutton",
+        "default": 98,
+        "min": 50,
+        "max": 100,
+        "step": 1,
+        "units": "%",
+        "description": "Stop Claude Code from",
+        "tooltip": "From this value of any window the applet writes ~/.claude/limit-watch/alert.json, and claude-code-hook.sh stops Claude Code until the window resets or the human allows paid work. Takes effect only with the hook installed; see the README."
     },
     "last-api-call-time": {
         "type": "generic",

@@ -57,10 +57,10 @@ Right-click the applet → *Configure*.
 | Amber from | 80% | Below this the indicator is green |
 | Red from | 90% | Raised to the amber threshold if set below it |
 | Poll the usage endpoint | on | Turns all network access off; the applet stays |
-| Polling interval | 10 minutes | 1 to 60 |
+| Polling interval | 5 minutes | 1 to 60 |
 | Refresh on click | on | A left click fetches fresh data, unless rate limited |
-| Skip polling while idle | on | Skips the poll while Claude Code is not working |
 | Credentials file | `~/.claude/.credentials.json` | For a non-standard install |
+| Stop Claude Code from | 98% | See *Stopping Claude Code* below |
 
 ## Where the data comes from
 
@@ -111,10 +111,39 @@ the polling is deliberately cautious:
 - **A pause that has an end is resumed at that end**, not at whatever moment
   the interval next lands on. It is the same single request either way, just
   not up to ten minutes late.
-- **Skipping while idle**: if `~/.claude/history.jsonl` has not changed for
-  half an hour there is nothing being spent, so the poll is skipped.
 
-At the default interval that is at most 144 requests a day.
+At the default interval that is at most 288 requests a day.
+
+## Stopping Claude Code
+
+The applet is also the one place that watches the limit for Claude Code itself,
+so nothing else polls the endpoint. On every tick it writes
+`~/.claude/limit-watch/status.json`; while any window is at or past *Stop Claude
+Code from*, it also writes `alert.json`, and removes it once the window drops
+back. `claude-code-hook.sh` reads those files from inside Claude Code:
+
+- with no alert it prints nothing, so it costs Claude no tokens;
+- past the threshold it blocks prompts before they reach the model and stops
+  the work in progress after the current tool, in subagents too, and shows the
+  human which window ran out and when it resets;
+- a message starting with «можно за деньги» allows paid work in that session
+  until the reset; a new session, `resume` included, starts blocked again.
+
+It needs `jq`. Register it in `~/.claude/settings.json`:
+
+```json
+"hooks": {
+  "SessionStart":     [{ "hooks": [{ "type": "command", "timeout": 5,
+      "command": "bash ~/.local/share/cinnamon/applets/claude-limits@paradoxm/claude-code-hook.sh SessionStart" }] }],
+  "UserPromptSubmit": [{ "hooks": [{ "type": "command", "timeout": 5,
+      "command": "bash ~/.local/share/cinnamon/applets/claude-limits@paradoxm/claude-code-hook.sh UserPromptSubmit" }] }],
+  "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "timeout": 5,
+      "command": "bash ~/.local/share/cinnamon/applets/claude-limits@paradoxm/claude-code-hook.sh PostToolUse" }] }]
+}
+```
+
+Without a running Cinnamon session — Claude Code over SSH alone — there is no
+applet, so nothing stops; the hook says once that `status.json` has gone stale.
 
 ## How it is built
 
@@ -130,6 +159,7 @@ is the only layer with side effects: widgets, network, files, cairo, timers.
 | `lib/format.js` | durations and clocks are formatted differently |
 | `lib/policy.js` | the thrift rules change |
 | `lib/auth.js` | Claude Code changes its credentials format |
+| `lib/alert.js` | the rules of stopping Claude Code change |
 
 Failures travel as codes, not sentences: one module decides what went wrong,
 another decides how to say it.
@@ -148,7 +178,7 @@ and the mismatch surfaces as a missing function.
 npm test
 ```
 
-94 tests, run against a real captured API response rather than an invented
+110 tests, run against a real captured API response rather than an invented
 shape. Coverage of `lib/`: 100% of lines and functions.
 
 One branch in `lib/view.js` stays uncovered — the one that loads the sibling

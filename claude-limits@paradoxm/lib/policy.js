@@ -10,12 +10,6 @@ var MIN_REQUEST_GAP = 30;
 var BACKOFF_START = 600;
 var BACKOFF_MAX = 3600;
 
-// Claude Code counts as idle when history.jsonl has not changed for this long.
-var IDLE_AFTER = 1800;
-
-// The order of the guards is not arbitrary. The cheap ones come first, and the
-// idle check comes last because it costs a blocking read from disk — there is
-// no reason to pay for it on a path that leads nowhere anyway.
 var fetchDecision = function(state, opts) {
     if (state.inFlight) return "in-flight";
     if (!opts.pollingEnabled && !opts.manual) return "off";
@@ -28,15 +22,13 @@ var fetchDecision = function(state, opts) {
     if (opts.now < (state.serverWaitUntil || 0)) return "rate-limited";
     if (opts.now - (state.lastCallAt || 0) < MIN_REQUEST_GAP) return "too-soon";
     if (!opts.manual && opts.now < (state.backoffUntil || 0)) return "backoff";
-    if (!opts.manual && opts.skipWhenIdle && state.data && opts.isClaudeIdle())
-        return "idle";
     return "fetch";
 };
 
 // Of the outcomes the user only needs those that mean "polling has stopped and
 // will not resume by itself within the minute". The rest pass in silence: they
 // resolve by the next tick.
-var PAUSED = ["off", "rate-limited", "backoff", "idle"];
+var PAUSED = ["off", "rate-limited", "backoff"];
 
 var pausedReason = function(decision) {
     return PAUSED.indexOf(decision) >= 0 ? decision : null;
@@ -93,7 +85,7 @@ var backoffDelay = function(step, retryAfter) {
 };
 
 if (typeof module !== "undefined")
-    module.exports = { MIN_REQUEST_GAP, BACKOFF_START, BACKOFF_MAX, IDLE_AFTER,
+    module.exports = { MIN_REQUEST_GAP, BACKOFF_START, BACKOFF_MAX,
                        RETRY_AFTER_MAX, RESUME_MARGIN, fetchDecision, pausedReason,
                        nextBackoff, kickDelay, resumeDelay, describeHttpFailure,
                        retryAfterSeconds, backoffDelay };

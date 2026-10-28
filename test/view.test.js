@@ -235,7 +235,6 @@ test("the footer explains every reason for the silence", () => {
     const withReason = (over) => View.tooltipMarkup(Object.assign({}, state, over), opts());
     assert.match(withReason({ error: { code: "http", status: 429 } }),
                  /last attempt failed: HTTP 429/);
-    assert.match(withReason({ pausedReason: "idle" }), /Claude Code is idle/);
     assert.match(withReason({ pausedReason: "off" }), /switched off in the settings/);
     assert.ok(!View.tooltipMarkup(state, opts({ clickToRefresh: false }))
                   .includes("click to refresh"));
@@ -268,9 +267,9 @@ test("a rate limit says a click will not help, unlike our own back-off", () => {
 test("an error outranks a pause: the breakage is reported first", () => {
     const markup = View.tooltipMarkup(
         { data: data(71, 9), fetchedAt: NOW, error: { code: "http", status: 500 },
-          pausedReason: "idle" }, opts());
+          pausedReason: "off" }, opts());
     assert.ok(markup.includes("HTTP 500"));
-    assert.ok(!markup.includes("is idle"));
+    assert.ok(!markup.includes("switched off"));
 });
 
 test("dimming switches on exactly when the footer explains why", () => {
@@ -278,7 +277,6 @@ test("dimming switches on exactly when the footer explains why", () => {
     assert.equal(View.isMuted({ error: null, pausedReason: null }), false);
     assert.equal(View.isMuted({ error: { code: "http", status: 500 }, pausedReason: null }), true);
     assert.equal(View.isMuted({ error: null, pausedReason: "off" }), true);
-    assert.equal(View.isMuted({ error: null, pausedReason: "idle" }), true);
     assert.equal(View.isMuted({ error: null, pausedReason: "backoff" }), true);
 });
 
