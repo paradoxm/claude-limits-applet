@@ -9,11 +9,15 @@ const St = imports.gi.St;
 
 const UUID = "claude-limits@paradoxm";
 const API_URL = "https://api.anthropic.com/api/oauth/usage";
+// Read by the Claude Code hook (claude-code-hook.sh): status on every tick,
+// the alert only while Claude must stop.
+const LIMIT_WATCH_DIR = GLib.get_home_dir() + "/.claude/limit-watch";
 
 // The logic lives in lib/ and knows nothing about Cinnamon. This file is the
 // thin layer between it and the panel: widgets, network, files, cairo and
 // timers, and nothing else.
 const Lib = imports.ui.appletManager.applets[UUID].lib;
+const Alert = Lib.alert;
 const Auth = Lib.auth;
 const Policy = Lib.policy;
 const Strings = Lib.strings;
@@ -44,8 +48,8 @@ ClaudeLimitsApplet.prototype = {
         this.settings.bind("threshold-crit", "thresholdCrit", redraw);
         this.settings.bind("polling-enabled", "pollingEnabled", redraw);
         this.settings.bind("click-to-refresh", "clickToRefresh", redraw);
-        this.settings.bind("skip-when-idle", "skipWhenIdle", redraw);
         this.settings.bind("credentials-path", "credentialsPath", redraw);
+        this.settings.bind("limit-threshold", "limitThreshold", redraw);
         // Only the interval itself touches the timer. The thresholds are spin
         // buttons, and every step would otherwise postpone the next poll.
         this.settings.bind("update-interval", "updateInterval",
@@ -69,6 +73,8 @@ ClaudeLimitsApplet.prototype = {
         // "updated 40 minutes ago" beat no figures at all.
         this._state.data = Usage.restoreUsage(this.lastResponse);
         this._state.fetchedAt = this._state.data ? (this.lastFetchedAt || 0) : 0;
+        // The hook needs what parseUsage drops: per-model windows and paid overflow
+        this._state.raw = this._state.data ? JSON.parse(this.lastResponse) : null;
         this._backoff = this.backoffStep || Policy.BACKOFF_START;
 
         this._userAgent = Auth.userAgentFor(this._claudeSymlinkTarget());
@@ -140,16 +146,6 @@ ClaudeLimitsApplet.prototype = {
         return Auth.readCredentials(text, Date.now());
     },
 
-    _claudeIdle: function() {
-        try {
-            const info = Gio.File.new_for_path(GLib.get_home_dir() + "/.claude/history.jsonl")
-                .query_info("time::modified", Gio.FileQueryInfoFlags.NONE, null);
-            return this._now() - info.get_attribute_uint64("time::modified") > Policy.IDLE_AFTER;
-        } catch (e) {
-            return false;   // cannot tell, so keep polling
-        }
-    },
-
     _now: function() {
         return Math.floor(GLib.get_real_time() / 1e6);
     },
@@ -158,8 +154,7 @@ ClaudeLimitsApplet.prototype = {
         const now = this._now();
         const decision = Policy.fetchDecision(this._state, {
             now: now, manual: manual,
-            pollingEnabled: this.pollingEnabled, skipWhenIdle: this.skipWhenIdle,
-            isClaudeIdle: this._claudeIdle.bind(this)
+            pollingEnabled: this.pollingEnabled
         });
         if (decision !== "fetch") {
             const paused = Policy.pausedReason(decision);
@@ -216,6 +211,7 @@ ClaudeLimitsApplet.prototype = {
 
     _accept: function(json) {
         this._state.data = Usage.parseUsage(json);
+        this._state.raw = json;
         this._state.fetchedAt = this._now();
         this.lastResponse = JSON.stringify(json);
         this.lastFetchedAt = this._state.fetchedAt;
@@ -275,7 +271,29 @@ ClaudeLimitsApplet.prototype = {
         this._area.set_height(Math.max(16, panelHeight - 10));
     },
 
+    // Atomic writes: the hook may read at any moment. A failure here must not
+    // take the panel down with it.
+    _publish: function() {
+        try {
+            const now = this._now();
+            const result = Alert.report(this._state.raw, this._state, this.limitThreshold, now);
+            // The hook calls the applet dead after this long without a tick
+            result.status.stale_after = Math.max(1800, 3 * this.updateInterval * 60);
+            GLib.mkdir_with_parents(LIMIT_WATCH_DIR, 0o755);
+            GLib.file_set_contents(LIMIT_WATCH_DIR + "/status.json",
+                                   JSON.stringify(result.status, null, 2) + "\n");
+            const alert = Gio.File.new_for_path(LIMIT_WATCH_DIR + "/alert.json");
+            if (result.alert)
+                GLib.file_set_contents(alert.get_path(), JSON.stringify(result.alert, null, 2) + "\n");
+            else if (alert.query_exists(null))
+                alert.delete(null);
+        } catch (e) {
+            global.logWarning(UUID + ": limit-watch: " + String(e.message || e));
+        }
+    },
+
     _render: function() {
+        this._publish();
         this._area.queue_repaint();
         this._label.clutter_text.set_markup(View.panelMarkup(this._state.data,
                                                              this._viewOptions()));
@@ -324,6 +342,8 @@ ClaudeLimitsApplet.prototype = {
         this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW,
             Math.max(60, this.updateInterval * 60), () => {
                 this._fetch(false);
+                // A tick without a request still says the applet is alive
+                this._publish();
                 return GLib.SOURCE_CONTINUE;
             });
     },

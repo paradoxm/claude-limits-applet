@@ -24,7 +24,6 @@ var EN = {
     updated: function(ago) { return "updated " + ago; },
     attemptFailed: function(reason) { return "last attempt failed: " + reason; },
     pausedOff: "polling is switched off in the settings",
-    pausedIdle: "polling paused, Claude Code is idle",
     pausedBackoff: "polling paused after the server refused",
     pausedRateLimited: function(clock) {
         return "rate limited until " + clock + "; asking earlier restarts the hour";
@@ -55,7 +54,6 @@ var RU = {
     updated: function(ago) { return "обновлено " + ago; },
     attemptFailed: function(reason) { return "последняя попытка не удалась: " + reason; },
     pausedOff: "опрос выключен в настройках",
-    pausedIdle: "опрос на паузе, Claude Code простаивает",
     pausedBackoff: "опрос приостановлен после отказа сервера",
     pausedRateLimited: function(clock) {
         return "лимит запросов до " + clock + ", запрос раньше продлит час";
