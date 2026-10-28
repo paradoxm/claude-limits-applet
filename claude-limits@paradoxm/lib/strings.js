@@ -20,6 +20,7 @@ var EN = {
     atTime: function(clock) { return ", at " + clock; },
     exhaustedBy: function(clock) { return "at this pace you hit the limit by " + clock; },
     lastsUntilReset: "at this pace it lasts until the reset",
+    paidPastLimits: function(money) { return "paid past the limits this month: " + money; },
 
     updated: function(ago) { return "updated " + ago; },
     attemptFailed: function(reason) { return "last attempt failed: " + reason; },
@@ -50,6 +51,7 @@ var RU = {
     atTime: function(clock) { return ", в " + clock; },
     exhaustedBy: function(clock) { return "при таком темпе упрётесь в лимит к " + clock; },
     lastsUntilReset: "при таком темпе до сброса хватит",
+    paidPastLimits: function(money) { return "оплачено сверх лимитов за месяц: " + money; },
 
     updated: function(ago) { return "обновлено " + ago; },
     attemptFailed: function(reason) { return "последняя попытка не удалась: " + reason; },

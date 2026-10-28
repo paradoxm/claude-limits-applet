@@ -40,8 +40,31 @@ var parseUsage = function(json) {
     };
     return {
         session: take("session", json && json.five_hour),
-        weekly: take("weekly_all", json && json.seven_day)
+        weekly: take("weekly_all", json && json.seven_day),
+        spend: parseSpend(json)
     };
+};
+
+// Money spent past the plan limits this month (the period claude.ai shows; the
+// response itself names none), in currency units. Null unless paying past the
+// limits is on and something has been spent. spend.used is the newer field,
+// extra_usage the fallback.
+var parseSpend = function(json) {
+    var spend = json && json.spend;
+    var extra = json && json.extra_usage;
+    var used = spend && spend.used;
+    var amount, currency;
+    if (used && typeof used.amount_minor === "number") {
+        amount = used.amount_minor / Math.pow(10, used.exponent || 0);
+        currency = used.currency;
+    } else if (extra && typeof extra.used_credits === "number") {
+        amount = extra.used_credits / Math.pow(10, extra.decimal_places || 0);
+        currency = extra.currency;
+    } else {
+        return null;
+    }
+    var enabled = (spend && spend.enabled) || (extra && extra.is_enabled);
+    return enabled && amount > 0 ? { amount: amount, currency: currency || "USD" } : null;
 };
 
 // The last answer of the previous session, read back from the settings. It is
@@ -79,4 +102,4 @@ var pace = function(limit, window, now) {
 
 if (typeof module !== "undefined")
     module.exports = { SESSION_WINDOW, WEEK_WINDOW, PACE_MIN_ELAPSED,
-                       parseIso8601, parseUsage, restoreUsage, pace };
+                       parseIso8601, parseUsage, parseSpend, restoreUsage, pace };

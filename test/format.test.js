@@ -33,6 +33,11 @@ test("formatAgo does not fuss over seconds in the first minute and a half", () =
     assert.equal(Format.formatAgo(90, RU), "1 мин назад");
 });
 
+test("formatMoney writes dollars with a sign and other currencies by code", () => {
+    assert.equal(Format.formatMoney(11.08, "USD"), "$11.08");
+    assert.equal(Format.formatMoney(5, "EUR"), "5.00 EUR");
+});
+
 test("formatClock shows local time with a leading zero", () => {
     const unix = Math.floor(Date.parse("2026-09-02T09:20:00Z") / 1000);
     const local = new Date(unix * 1000);

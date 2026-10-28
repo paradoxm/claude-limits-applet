@@ -338,3 +338,12 @@ test("the mark is absent when switched off or when the pace is unknown", () => {
     assert.equal(View.barLayout(40, data(30, 5),
                                 opts({ now: RESET_SESSION - Usage.SESSION_WINDOW })).mark, null);
 });
+
+test("the card names the money paid past the limits, and only when there is some", () => {
+    const paid = Object.assign(data(7, 100), { spend: { amount: 11.08, currency: "USD" } });
+    assert.match(View.tooltipMarkup({ data: paid, fetchedAt: NOW }, opts()),
+                 /paid past the limits this month: \$11\.08/);
+    assert.match(View.tooltipMarkup({ data: paid, fetchedAt: NOW }, opts({ t: Strings.RU })),
+                 /оплачено сверх лимитов за месяц: \$11\.08/);
+    assert.ok(!View.tooltipMarkup({ data: data(7, 40), fetchedAt: NOW }, opts()).includes("paid past"));
+});
