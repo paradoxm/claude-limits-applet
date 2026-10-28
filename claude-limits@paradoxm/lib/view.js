@@ -136,6 +136,15 @@ var titleMarkup = function(t) {
     return "<span alpha='50%'>" + t.title + "</span>";
 };
 
+// Laid out like a limit block — the sum leads, the label follows quieter —
+// so the card reads as one instrument rather than a list with a note at the end.
+var spendBlock = function(spend, t) {
+    return "<span fgcolor='" + WATCH.hex + "'><b><big>"
+        + Format.formatMoney(spend.amount, spend.currency) + "</big></b></span>"
+        + "   <span alpha='60%'>" + t.paidPastLimits + "</span>\n"
+        + "<span alpha='60%'>" + t.thisMonth + "</span>";
+};
+
 var tooltipMarkup = function(state, opts) {
     var t = opts.t;
     if (!state.data)
@@ -150,9 +159,7 @@ var tooltipMarkup = function(state, opts) {
         limitBlock(t.sessionWindow, state.data.session, Usage.SESSION_WINDOW, opts),
         limitBlock(t.weeklyWindow, state.data.weekly, Usage.WEEK_WINDOW, opts)
     ];
-    if (state.data.spend)
-        parts.push("<span fgcolor='" + WATCH.hex + "'>" + t.paidPastLimits(
-            Format.formatMoney(state.data.spend.amount, state.data.spend.currency)) + "</span>");
+    if (state.data.spend) parts.push(spendBlock(state.data.spend, t));
 
     var footer = t.updated(Format.formatAgo(opts.now - state.fetchedAt, t));
     if (state.error)
@@ -205,4 +212,4 @@ if (typeof module !== "undefined")
     module.exports = { CALM, WATCH, ALARM, BAR_CELLS, BAR_WIDTH, BAR_GAP, LEAD,
                        colorFor, isMuted, pauseText, titleMarkup, panelMarkup, PACE_MARK_SPAN,
                        paceCell, barMarkup,
-                       limitBlock, tooltipMarkup, barLayout, barsWidth };
+                       limitBlock, spendBlock, tooltipMarkup, barLayout, barsWidth };
