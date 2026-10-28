@@ -341,9 +341,10 @@ test("the mark is absent when switched off or when the pace is unknown", () => {
 
 test("the card names the money paid past the limits, and only when there is some", () => {
     const paid = Object.assign(data(7, 100), { spend: { amount: 11.08, currency: "USD" } });
-    assert.match(View.tooltipMarkup({ data: paid, fetchedAt: NOW }, opts()),
-                 /paid past the limits this month: \$11\.08/);
+    const en = View.tooltipMarkup({ data: paid, fetchedAt: NOW }, opts());
+    assert.match(en, /<big>\$11\.08<\/big><\/b><\/span>   <span alpha='60%'>paid past the limits<\/span>\n/);
+    assert.match(en, /this month/);
     assert.match(View.tooltipMarkup({ data: paid, fetchedAt: NOW }, opts({ t: Strings.RU })),
-                 /оплачено сверх лимитов за месяц: \$11\.08/);
+                 /оплачено сверх лимитов<\/span>\n<span alpha='60%'>за этот месяц/);
     assert.ok(!View.tooltipMarkup({ data: data(7, 40), fetchedAt: NOW }, opts()).includes("paid past"));
 });
