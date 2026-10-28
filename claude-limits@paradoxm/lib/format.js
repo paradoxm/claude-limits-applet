@@ -24,6 +24,10 @@ var formatClock = function(unix) {
     return pad(d.getHours()) + ":" + pad(d.getMinutes());
 };
 
+var formatMoney = function(amount, currency) {
+    return currency === "USD" ? "$" + amount.toFixed(2) : amount.toFixed(2) + " " + currency;
+};
+
 var isSameDay = function(unix, now) {
     var a = new Date(unix * 1000), b = new Date(now * 1000);
     return a.getFullYear() === b.getFullYear()
@@ -36,4 +40,4 @@ var escapeMarkup = function(text) {
 };
 
 if (typeof module !== "undefined")
-    module.exports = { formatDuration, formatAgo, formatClock, isSameDay, escapeMarkup };
+    module.exports = { formatDuration, formatAgo, formatClock, formatMoney, isSameDay, escapeMarkup };

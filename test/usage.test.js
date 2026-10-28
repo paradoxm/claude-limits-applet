@@ -51,9 +51,25 @@ test("parseUsage prefers percent but accepts utilization", () => {
     assert.equal(data.weekly.percent, 0);
 });
 
+test("parseSpend reads the spend past the limits, newer field first", () => {
+    const spend = { enabled: true, used: { amount_minor: 1108, exponent: 2, currency: "USD" } };
+    assert.deepEqual(Usage.parseSpend({ spend }), { amount: 11.08, currency: "USD" });
+    assert.deepEqual(Usage.parseSpend({ extra_usage: { is_enabled: true, used_credits: 3605,
+                                                       decimal_places: 2, currency: "EUR" } }),
+                     { amount: 36.05, currency: "EUR" });
+});
+
+test("parseSpend says nothing while paying is off or nothing was spent", () => {
+    assert.equal(Usage.parseSpend(REAL_RESPONSE), null);   // enabled, 0 spent
+    assert.equal(Usage.parseSpend({ extra_usage: { is_enabled: false, used_credits: 500 } }), null);
+    assert.equal(Usage.parseSpend({}), null);
+    assert.equal(Usage.parseSpend(null), null);
+});
+
 test("parseUsage survives an empty or malformed response", () => {
     assert.deepEqual(Usage.parseUsage({}),
-                     { session: { percent: 0, resetsAt: 0 }, weekly: { percent: 0, resetsAt: 0 } });
+                     { session: { percent: 0, resetsAt: 0 }, weekly: { percent: 0, resetsAt: 0 },
+                       spend: null });
     assert.equal(Usage.parseUsage(null).session.percent, 0);
     assert.equal(Usage.parseUsage({ limits: "not an array" }).session.percent, 0);
 });

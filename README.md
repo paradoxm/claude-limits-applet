@@ -22,7 +22,9 @@ and a verdict — *at this pace you hit the limit by 13:46*. Both bars carry the
 same pace mark as the panel, at a size the eye can actually read: fill past the
 mark means you are ahead of the clock. The card is recomputed as the pointer
 arrives, so the countdown and *updated N minutes ago* are always current rather
-than frozen at the moment of the last request.
+than frozen at the moment of the last request. While paying past the plan
+limits is on and something has been spent, the card also shows how much this
+month.
 
 ![The hover card](docs/tooltip.png)
 
@@ -178,7 +180,7 @@ and the mismatch surfaces as a missing function.
 npm test
 ```
 
-110 tests, run against a real captured API response rather than an invented
+114 tests, run against a real captured API response rather than an invented
 shape. Coverage of `lib/`: 100% of lines and functions.
 
 One branch in `lib/view.js` stays uncovered — the one that loads the sibling

@@ -150,6 +150,9 @@ var tooltipMarkup = function(state, opts) {
         limitBlock(t.sessionWindow, state.data.session, Usage.SESSION_WINDOW, opts),
         limitBlock(t.weeklyWindow, state.data.weekly, Usage.WEEK_WINDOW, opts)
     ];
+    if (state.data.spend)
+        parts.push("<span fgcolor='" + WATCH.hex + "'>" + t.paidPastLimits(
+            Format.formatMoney(state.data.spend.amount, state.data.spend.currency)) + "</span>");
 
     var footer = t.updated(Format.formatAgo(opts.now - state.fetchedAt, t));
     if (state.error)
