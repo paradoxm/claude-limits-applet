@@ -70,10 +70,24 @@ Right-click the applet → *Configure*.
 `~/.claude/.credentials.json`. It is the same endpoint behind the figures at
 `claude.ai/settings/usage`.
 
-The credentials file is **only ever read**. The applet deliberately does not
-refresh the token itself: the refresh token rotates, so renewing it here would
-break the sign-in inside Claude Code. An expired token is reported as an error
-— Claude Code will refresh it the next time you use it.
+When the token in that file has expired, the applet renews it itself. The
+desktop app keeps its own sign-in and does not renew the one in the file, so
+without this the applet goes blind while only the desktop app is used.
+
+The refresh token rotates: if Claude Code and the applet refreshed at once,
+the second would post a token the server has already burnt and lose the
+sign-in. So the applet refreshes exactly the way Claude Code does, under the
+same locks:
+
+- it takes `~/.claude/.oauth_refresh.lock` and then `~/.claude.lock` — the
+  mkdir locks Claude Code takes — and skips the refresh if either is held; a
+  lock older than a minute is a crashed holder's and is taken over;
+- under the locks it re-reads the file and refreshes only if the token is
+  still expired, so a token Claude Code has just renewed is simply used;
+- it writes the new tokens back only if the file still holds the refresh token
+  it posted, and changes nothing else in the file;
+- a refresh token the server refused (400) is never posted again — sign in to
+  Claude Code anew.
 
 ## How it stays within the rate limit
 
@@ -160,7 +174,7 @@ is the only layer with side effects: widgets, network, files, cairo, timers.
 | `lib/strings.js` | the wording changes, or a language is added |
 | `lib/format.js` | durations and clocks are formatted differently |
 | `lib/policy.js` | the thrift rules change |
-| `lib/auth.js` | Claude Code changes its credentials format |
+| `lib/auth.js` | Claude Code changes its credentials format or how it refreshes |
 | `lib/alert.js` | the rules of stopping Claude Code change |
 
 Failures travel as codes, not sentences: one module decides what went wrong,
@@ -180,7 +194,7 @@ and the mismatch surfaces as a missing function.
 npm test
 ```
 
-114 tests, run against a real captured API response rather than an invented
+120 tests, run against a real captured API response rather than an invented
 shape. Coverage of `lib/`: 100% of lines and functions.
 
 One branch in `lib/view.js` stays uncovered — the one that loads the sibling
