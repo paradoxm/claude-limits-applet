@@ -169,6 +169,14 @@ ClaudeLimitsApplet.prototype = {
         this._state.pausedReason = null;
 
         const credentials = this._token();
+        if (credentials.error && credentials.error.code === "token-expired" && !this._refreshing) {
+            this._refresh(now, (refreshed) => this._request(refreshed, now));
+            return;
+        }
+        this._request(credentials, now);
+    },
+
+    _request: function(credentials, now) {
         if (credentials.error) {
             this._fail(credentials.error, false);
             return;
@@ -207,6 +215,121 @@ ClaudeLimitsApplet.prototype = {
                 this._fail({ code: "exception", text: String(e.message || e) }, true);
             }
         });
+    },
+
+    // ── Token refresh ──────────────────────────────────────────────────────
+    // The desktop app keeps its own sign-in, so while only it is used nobody
+    // renews the token in the credentials file and the applet goes blind. It
+    // renews it itself, under the locks Claude Code takes (see lib/auth.js),
+    // and never touches a refresh token Claude Code has already rotated.
+    _refresh: function(now, done) {
+        const path = this._credentialsPath();
+        const claudeDir = GLib.path_get_dirname(path);
+        const locks = this._lock(Auth.lockPaths(claudeDir));
+        // Claude Code is refreshing right now: its token is what we read next
+        if (!locks) {
+            done(this._token());
+            return;
+        }
+        const unlock = () => locks.forEach((lock) => this._unlock(lock));
+
+        const body = Auth.refreshBody(this._read(path), Date.now(), this._deadRefreshToken);
+        if (!body) {
+            unlock();
+            done(this._token());
+            return;
+        }
+
+        const message = Soup.Message.new("POST", Auth.TOKEN_URL);
+        message.request_headers.replace("User-Agent", this._userAgent);
+        message.set_request_body_from_bytes("application/json",
+            new GLib.Bytes(ByteArray.fromString(JSON.stringify(body))));
+
+        this._refreshing = true;
+        this._state.inFlight = true;
+        this._state.lastCallAt = now;
+        this.lastApiCallTime = now;
+        this._cancellable = new Gio.Cancellable();
+        this._session.send_and_read_async(message, GLib.PRIORITY_LOW, this._cancellable,
+                                          (session, result) => {
+            this._refreshing = false;
+            if (this._cancellable === null) { unlock(); return; }   // the applet is gone
+            this._state.inFlight = false;
+            let failure = null;
+            try {
+                const bytes = session.send_and_read_finish(result);
+                const status = message.status_code;
+                if (status === 200) {
+                    const updated = Auth.applyRefresh(this._read(path), body.refresh_token,
+                        JSON.parse(ByteArray.toString(bytes.get_data())), Date.now());
+                    // null: Claude Code rotated the token meanwhile, and its write wins
+                    if (updated !== null)
+                        Gio.File.new_for_path(path).replace_contents(ByteArray.fromString(updated),
+                            null, false, Gio.FileCreateFlags.PRIVATE, null);
+                } else {
+                    // 400 is invalid_grant: this refresh token is dead, never post it again
+                    if (status === 400) this._deadRefreshToken = body.refresh_token;
+                    failure = { code: "refresh-failed", status: status };
+                }
+            } catch (e) {
+                failure = { code: "exception", text: String(e.message || e) };
+            } finally {
+                unlock();
+            }
+            done(failure ? { error: failure } : this._token());
+        });
+    },
+
+    _read: function(path) {
+        try {
+            const [ok, contents] = Gio.File.new_for_path(path).load_contents(null);
+            return ok ? ByteArray.toString(contents) : "";
+        } catch (e) {
+            return "";
+        }
+    },
+
+    // All the locks in order, or null when one is held by someone alive; a
+    // lock left over from a crash is taken over the way proper-lockfile does.
+    _lock: function(paths) {
+        const taken = [];
+        for (let path of paths) {
+            if (!this._mkdirLock(path)) {
+                taken.reverse().forEach((lock) => this._unlock(lock));
+                return null;
+            }
+            taken.push(path);
+        }
+        return taken.reverse();
+    },
+
+    _mkdirLock: function(path) {
+        const dir = Gio.File.new_for_path(path);
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                dir.make_directory(null);   // atomic: fails if it exists
+                return true;
+            } catch (e) {
+                if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.EXISTS)) return false;
+            }
+            try {
+                const mtime = dir.query_info("time::modified", Gio.FileQueryInfoFlags.NONE, null)
+                    .get_modification_date_time().to_unix() * 1000;
+                if (!Auth.lockIsStale(mtime, Date.now())) return false;
+                dir.delete(null);
+            } catch (e) {
+                // gone in between: try once more
+            }
+        }
+        return false;
+    },
+
+    _unlock: function(path) {
+        try {
+            Gio.File.new_for_path(path).delete(null);
+        } catch (e) {
+            global.logWarning(UUID + ": cannot remove " + path + ": " + String(e.message || e));
+        }
     },
 
     _accept: function(json) {
